@@ -1,0 +1,12 @@
+---
+# CA bundle for Tempo to trust the NooBaa S3 endpoint's TLS certificate.
+# NooBaa S3 uses HTTPS on port 443 with a cert signed by the OCP service serving CA.
+# OCP automatically injects the cluster CA bundle when this annotation is present.
+# After applying, wait for the "service-ca.crt" key to be populated (~5-10s).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-s3-ca
+  namespace: openshift-tracing
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"

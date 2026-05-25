@@ -1,0 +1,12 @@
+# Creates an S3-compatible bucket in NooBaa for Tempo trace storage.
+# After applying, NooBaa creates:
+#   Secret:    tempo-bucket (in tempo) — AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+#   ConfigMap: tempo-bucket (in tempo) — BUCKET_HOST, BUCKET_PORT, BUCKET_NAME
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: tempo-bucket
+  namespace: openshift-tracing
+spec:
+  generateBucketName: tempo-bucket
+  storageClassName: ${OBC_STORAGE_CLASS}

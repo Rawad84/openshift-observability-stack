@@ -1,0 +1,180 @@
+---
+# OTel Collector receives traces from all three apps and forwards to Tempo
+# Prerequisites: TempoStack or TempoMonolithic installed in the cluster
+#   oc get tempostack -A  OR  oc get tempomonolithic -A
+#
+# If using TempoMonolithic (recommended for single-node/lab):
+#   tempo-endpoint: http://tempo-simplest-distributor.tempo.svc.cluster.local:4317
+#
+# Adjust the tempo-endpoint below to match your Tempo installation.
+---
+# ServiceAccount for the OTel Collector — needed by k8sattributesprocessor
+# to read pod and namespace metadata from the Kubernetes API.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: app-scenario
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector-k8s-reader
+rules:
+  - apiGroups: [""]
+    resources: [pods, namespaces, nodes, replicationcontrollers, services, endpoints]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets, deployments, statefulsets, daemonsets]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector-k8s-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-collector-k8s-reader
+subjects:
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: app-scenario
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: app-scenario
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 512
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 256
+      k8sattributes:
+        auth_type: serviceAccount
+        passthrough: false
+        filter:
+          node_from_env_var: KUBE_NODE_NAME
+        extract:
+          metadata:
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.namespace.name
+            - k8s.node.name
+        pod_association:
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+          - sources:
+            - from: connection
+
+    exporters:
+      otlp:
+        endpoint: "https://tempo-platform-gateway.openshift-tracing.svc.cluster.local:4317"
+        tls:
+          ca_file: /etc/otel/ca/service-ca.crt
+        headers:
+          X-Scope-OrgID: "platform"
+          Authorization: "Bearer ${TEMPO_TOKEN}"
+      logging:
+        loglevel: warn
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, k8sattributes, batch]
+          exporters: [otlp, logging]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: app-scenario
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      serviceAccountName: otel-collector
+      containers:
+        - name: otel-collector
+          image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.100.0
+          args:
+            - "--config=/conf/config.yaml"
+          env:
+            - name: TEMPO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: otel-collector-sa-token
+                  key: token
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+            - name: tempo-ca
+              mountPath: /etc/otel/ca
+              readOnly: true
+          ports:
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+        - name: tempo-ca
+          configMap:
+            name: otel-tempo-ca
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: app-scenario
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318

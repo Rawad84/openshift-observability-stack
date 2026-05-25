@@ -1,0 +1,32 @@
+---
+# Public route for the frontend — used to drive traffic and test scenarios
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: frontend
+  namespace: app-scenario
+spec:
+  to:
+    kind: Service
+    name: frontend
+  port:
+    targetPort: web
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Internal route for backend — used for inject-failure and restore scenario scripts
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: backend
+  namespace: app-scenario
+spec:
+  to:
+    kind: Service
+    name: backend
+  port:
+    targetPort: web
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,51 @@
+---
+apiVersion: monitoring.rhobs/v1
+kind: ServiceMonitor
+metadata:
+  name: frontend
+  namespace: app-scenario
+  labels:
+    monitoring.rhobs/stack: app-scenario
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  endpoints:
+    - port: web
+      path: /metrics
+      interval: 15s
+      scheme: http
+---
+apiVersion: monitoring.rhobs/v1
+kind: ServiceMonitor
+metadata:
+  name: backend
+  namespace: app-scenario
+  labels:
+    monitoring.rhobs/stack: app-scenario
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+    - port: web
+      path: /metrics
+      interval: 15s
+      scheme: http
+---
+apiVersion: monitoring.rhobs/v1
+kind: ServiceMonitor
+metadata:
+  name: mock-db
+  namespace: app-scenario
+  labels:
+    monitoring.rhobs/stack: app-scenario
+spec:
+  selector:
+    matchLabels:
+      app: mock-db
+  endpoints:
+    - port: web
+      path: /metrics
+      interval: 15s
+      scheme: http

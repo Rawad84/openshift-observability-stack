@@ -1,0 +1,12 @@
+---
+# CA bundle for OTel Collector to trust the Tempo gateway's TLS certificate.
+# The Tempo gateway uses a service serving certificate signed by the OCP internal CA.
+# OCP automatically injects the cluster CA bundle when this annotation is present.
+# After applying, wait for the "service-ca.crt" key to be populated (~5-10s).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-tempo-ca
+  namespace: app-scenario
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"

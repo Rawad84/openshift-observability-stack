@@ -1,0 +1,151 @@
+---
+# Recording rules: evaluated by UWM Prometheus (leaf-prometheus scope).
+# Pre-computes rates used by the alerting rules below.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-scenario-recording
+  namespace: app-scenario
+  labels:
+    openshift.io/prometheus-rule-evaluation-scope: leaf-prometheus
+spec:
+  groups:
+    - name: app-scenario.recording
+      interval: 30s
+      rules:
+        - record: job:http_requests_total:rate5m
+          expr: |
+            sum by (job) (rate(http_requests_total[5m]))
+
+        - record: job:http_requests_errors:rate5m
+          expr: |
+            sum by (job) (rate(http_requests_total{status_code=~"5.."}[5m]))
+
+        - record: job:http_requests_error_ratio:rate5m
+          expr: |
+            job:http_requests_errors:rate5m
+            /
+            job:http_requests_total:rate5m
+
+        - record: job:http_request_duration_seconds:p50
+          expr: |
+            histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+        - record: job:http_request_duration_seconds:p95
+          expr: |
+            histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+        - record: job:http_request_duration_seconds:p99
+          expr: |
+            histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
+---
+# Alerting rules: evaluated by UWM Thanos Ruler (no leaf-prometheus label).
+# These alerts appear in OCP Console → Observe → Alerting and are accessible
+# to the Troubleshooting Panel (korrel8r) for signal correlation.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-scenario-alerts
+  namespace: app-scenario
+spec:
+  groups:
+    - name: app-scenario.availability
+      rules:
+        - alert: FrontendTargetDown
+          expr: up{job="frontend"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: frontend
+            deployment: frontend
+          annotations:
+            summary: "Frontend scrape target is down"
+            description: "Prometheus cannot scrape the frontend pod."
+
+        - alert: BackendTargetDown
+          expr: up{job="backend"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend scrape target is down"
+            description: "Prometheus cannot scrape the backend pod."
+
+        - alert: MockDbTargetDown
+          expr: up{job="mock-db"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            service: mock-db
+            deployment: mock-db
+          annotations:
+            summary: "mock-db scrape target is down"
+            description: "Prometheus cannot scrape the mock-db pod."
+
+        - alert: BackendPodRestarting
+          expr: rate(kube_pod_container_status_restarts_total{namespace="app-scenario", pod=~"backend-.*"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend pod is restarting"
+            description: "The backend pod has restarted at least once in the last 15 minutes."
+
+    - name: app-scenario.performance
+      rules:
+        - alert: FrontendHighErrorRate
+          expr: job:http_requests_error_ratio:rate5m{job="frontend"} > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: frontend
+            deployment: frontend
+          annotations:
+            summary: "Frontend error rate exceeds 5%"
+            description: "{{ $value | humanizePercentage }} of frontend requests are returning 5xx errors."
+
+        - alert: BackendHighErrorRate
+          expr: job:http_requests_error_ratio:rate5m{job="backend"} > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend error rate exceeds 5%"
+            description: "{{ $value | humanizePercentage }} of backend requests are returning 5xx errors."
+
+        - alert: FrontendHighLatency
+          expr: job:http_request_duration_seconds:p99{job="frontend"} > 5.0
+          for: 5m
+          labels:
+            severity: warning
+            service: frontend
+            deployment: frontend
+          annotations:
+            summary: "Frontend p99 latency exceeds 5s"
+            description: "Frontend p99 request latency is {{ $value }}s."
+
+        - alert: BackendHighLatency
+          expr: job:http_request_duration_seconds:p99{job="backend"} > 3.0
+          for: 5m
+          labels:
+            severity: warning
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend p99 latency exceeds 3s"
+            description: "Backend p99 request latency is {{ $value }}s."
+
+        - alert: NoMetricsScraped
+          expr: absent(http_requests_total{namespace="app-scenario"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "No http_requests_total metrics from app-scenario"
+            description: "The http_requests_total metric has disappeared from the app-scenario namespace."

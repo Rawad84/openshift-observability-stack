@@ -1,0 +1,21 @@
+# Prerequisites:
+#   - LokiStack deployed in openshift-logging (or your logging namespace)
+#   - Red Hat OpenShift Logging Operator installed
+#   - Verify: oc get lokistack -A
+#
+# What it enables: OCP Console → Observe → Logs tab
+# Support status: Generally Available
+#
+# Update lokiStack.name/namespace to match your LokiStack instance:
+#   oc get lokistack -A -o custom-columns=NAME:.metadata.name,NS:.metadata.namespace
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: logging
+spec:
+  type: Logging
+  logging:
+    lokiStack:
+      name: logging-loki
+      namespace: openshift-logging
+    timeout: 30s

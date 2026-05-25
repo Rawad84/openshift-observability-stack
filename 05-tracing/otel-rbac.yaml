@@ -1,0 +1,53 @@
+---
+# The Tempo gateway (observatorium proxy) uses opa-openshift for authorization.
+# It performs a SelfSubjectAccessReview with the caller's Bearer token checking:
+#   verb:     create
+#   resource: <tenantName>   (from X-Scope-OrgID header)
+#   group:    <value from --openshift.mappings=<tenant>=<group> flag>
+#
+# For tenant "platform" mapped to group "tempo.grafana.com", the SA must be
+# able to `create` the resource named "platform" in the "tempo.grafana.com" group.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempo-tenant-platform-write
+rules:
+- apiGroups: ["tempo.grafana.com"]
+  resources: ["platform"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector-tempo-write
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempo-tenant-platform-write
+subjects:
+- kind: ServiceAccount
+  name: otel-collector-sa
+  namespace: app-scenario
+---
+# Allow the distributed-tracing console plugin SA to read tenant traces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempo-tenant-platform-read
+rules:
+- apiGroups: ["tempo.grafana.com"]
+  resources: ["platform"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-admin-tempo-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempo-tenant-platform-read
+subjects:
+- kind: Group
+  name: system:cluster-admins
+  apiGroup: rbac.authorization.k8s.io

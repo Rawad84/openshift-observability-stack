@@ -1,0 +1,69 @@
+# Dedicated LokiStack for Network Observability.
+# Uses openshift-network tenant mode so the Loki Operator registers the
+# "network" tenant in the gateway — this is the ONLY supported way to
+# enable NetObserv flow storage when using Loki Operator 6.x.
+#
+# Prerequisites:
+#   1. Loki Operator installed
+#   2. netobserv-loki-obc.yaml applied and OBC is Bound
+#   3. deploy-netobserv-loki.sh run (creates netobserv-loki-storage secret)
+#
+# Size 1x.pico is used for lab/demo — operator respects template resource overrides at this size.
+# Note: this is intentionally separate from the openshift-logging LokiStack.
+#   openshift-logging mode  → application / infrastructure / audit tenants
+#   openshift-network mode  → network tenant
+#   Loki Operator 6.x does not support mixing these modes in one LokiStack.
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: loki
+  namespace: ${NETOBSERV_NS}
+spec:
+  size: 1x.pico
+  managementState: Managed
+  storage:
+    schemas:
+      - version: v13
+        effectiveDate: "2024-01-01"
+    secret:
+      name: loki-storage
+      type: s3
+  storageClassName: ${STORAGE_CLASS}
+  tenants:
+    mode: openshift-network
+  template:
+    ingester:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+    distributor:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    querier:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    queryFrontend:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    compactor:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    indexGateway:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    gateway:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi

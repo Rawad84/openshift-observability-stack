@@ -1,0 +1,37 @@
+# TempoMonolithic using NooBaa S3 storage.
+# Prerequisites:
+#   1. Tempo Operator installed
+#   2. objectbucketclaim.yaml applied and OBC is Bound
+#   3. tempo-storage secret created by build-and-deploy.sh
+#
+# The OTel Collector in otel-collector.yaml is pre-configured to send
+# traces to: http://tempo-simplest-distributor.tempo.svc.cluster.local:4317
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoMonolithic
+metadata:
+  name: platform
+  namespace: openshift-tracing
+spec:
+  storage:
+    traces:
+      backend: s3
+      size: 10Gi
+      s3:
+        secret: tempo-storage
+        tls:
+          enabled: true
+          caName: tempo-s3-ca
+  storageClassName: ${STORAGE_CLASS}
+  jaegerui:
+    enabled: true
+    authentication:
+      enabled: true
+    route:
+      enabled: true
+      termination: edge
+  multitenancy:
+    enabled: true
+    mode: openshift
+    authentication:
+      - tenantName: platform
+        tenantId: "e2f42cd0-1234-5678-abcd-app-scenario-01"

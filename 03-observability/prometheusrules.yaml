@@ -1,0 +1,154 @@
+apiVersion: monitoring.rhobs/v1
+kind: PrometheusRule
+metadata:
+  name: app-scenario-alerts
+  namespace: app-scenario
+  labels:
+    monitoring.rhobs/stack: app-scenario
+spec:
+  groups:
+    # ── Recording rules: pre-compute rates for alerting and dashboards ──────────
+    - name: app-scenario.recording
+      interval: 30s
+      rules:
+        # Traffic
+        - record: job:http_requests_total:rate5m
+          expr: |
+            sum by (job) (rate(http_requests_total[5m]))
+
+        # Error rate
+        - record: job:http_requests_errors:rate5m
+          expr: |
+            sum by (job) (rate(http_requests_total{status_code=~"5.."}[5m]))
+
+        # Error ratio
+        - record: job:http_requests_error_ratio:rate5m
+          expr: |
+            job:http_requests_errors:rate5m
+            /
+            job:http_requests_total:rate5m
+
+        # Latency percentiles
+        - record: job:http_request_duration_seconds:p50
+          expr: |
+            histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+        - record: job:http_request_duration_seconds:p95
+          expr: |
+            histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+        - record: job:http_request_duration_seconds:p99
+          expr: |
+            histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+    # ── Availability alerts ─────────────────────────────────────────────────────
+    - name: app-scenario.availability
+      rules:
+        - alert: FrontendTargetDown
+          expr: up{job="frontend"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: frontend
+            deployment: frontend
+          annotations:
+            summary: "Frontend scrape target is down"
+            description: "Prometheus cannot scrape the frontend pod. The pod may be crashing or not exposing /metrics."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#FrontendTargetDown"
+
+        - alert: BackendTargetDown
+          expr: up{job="backend"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend scrape target is down"
+            description: "Prometheus cannot scrape the backend pod."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#BackendTargetDown"
+
+        - alert: MockDbTargetDown
+          expr: up{job="mock-db"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            service: mock-db
+            deployment: mock-db
+          annotations:
+            summary: "mock-db scrape target is down"
+            description: "Prometheus cannot scrape the mock-db pod. Backend database calls will fail."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#MockDbTargetDown"
+
+        - alert: BackendPodRestarting
+          expr: rate(kube_pod_container_status_restarts_total{namespace="app-scenario", pod=~"backend-.*"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend pod is restarting"
+            description: "The backend pod has restarted at least once in the last 15 minutes. Check logs for crash cause."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#BackendPodRestarting"
+
+    # ── Performance alerts ──────────────────────────────────────────────────────
+    - name: app-scenario.performance
+      rules:
+        - alert: FrontendHighErrorRate
+          expr: job:http_requests_error_ratio:rate5m{job="frontend"} > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: frontend
+            deployment: frontend
+          annotations:
+            summary: "Frontend error rate exceeds 5%"
+            description: "{{ $value | humanizePercentage }} of frontend requests are returning 5xx errors. This is often caused by backend failures propagating upstream."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#FrontendHighErrorRate"
+
+        - alert: BackendHighErrorRate
+          expr: job:http_requests_error_ratio:rate5m{job="backend"} > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend error rate exceeds 5%"
+            description: "{{ $value | humanizePercentage }} of backend requests are returning 5xx errors. Check mock-db connectivity and logs."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#BackendHighErrorRate"
+
+        - alert: FrontendHighLatency
+          expr: job:http_request_duration_seconds:p99{job="frontend"} > 1.0
+          for: 5m
+          labels:
+            severity: warning
+            service: frontend
+            deployment: frontend
+          annotations:
+            summary: "Frontend p99 latency exceeds 5s"
+            description: "Frontend p99 request latency is {{ $value }}s. High latency in the backend (database dependency) propagates here."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#FrontendHighLatency"
+
+        - alert: BackendHighLatency
+          expr: job:http_request_duration_seconds:p99{job="backend"} > 3.0
+          for: 5m
+          labels:
+            severity: warning
+            service: backend
+            deployment: backend
+          annotations:
+            summary: "Backend p99 latency exceeds 3s"
+            description: "Backend p99 request latency is {{ $value }}s. This suggests mock-db is slow or connection pool is exhausted."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#BackendHighLatency"
+
+        - alert: NoMetricsScraped
+          expr: absent(http_requests_total{namespace="app-scenario"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "No http_requests_total metrics from app-scenario"
+            description: "The http_requests_total metric has disappeared from the app-scenario namespace. ServiceMonitor may be misconfigured or pods are down."
+            runbook_url: "https://github.com/your-org/observability-scenario/blob/main/runbooks.md#NoMetricsScraped"

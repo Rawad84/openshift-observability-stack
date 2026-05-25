@@ -1,0 +1,22 @@
+# Personal / local notes
+mynotes.txt
+
+# Working docs kept out of version control
+STRUCTURE.md
+root-cause-template.md
+blog-post.md
+
+# Claude Code local settings
+.claude/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.idea/
+.vscode/
+
+# Shell history / temp files
+*.tmp
+*.log

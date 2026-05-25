@@ -1,0 +1,19 @@
+# Applied via build-and-deploy.sh using envsubst. GRAFANA_NS must match the Grafana instance namespace.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: prometheus-app-scenario
+  namespace: ${GRAFANA_NS}
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana-a
+  datasource:
+    name: Prometheus
+    type: prometheus
+    uid: prometheus-app-scenario
+    access: proxy
+    url: http://app-scenario-stack-prometheus.app-scenario.svc:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 30s

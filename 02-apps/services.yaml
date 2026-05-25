@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: app-scenario
+  labels:
+    app: frontend
+    monitoring.rhobs/stack: app-scenario
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: web
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: app-scenario
+  labels:
+    app: backend
+    monitoring.rhobs/stack: app-scenario
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: web
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-db
+  namespace: app-scenario
+  labels:
+    app: mock-db
+    monitoring.rhobs/stack: app-scenario
+spec:
+  selector:
+    app: mock-db
+  ports:
+    - name: web
+      port: 8080
+      targetPort: 8080

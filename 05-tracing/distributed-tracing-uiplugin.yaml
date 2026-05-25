@@ -1,0 +1,18 @@
+# Prerequisites:
+#   - TempoStack or TempoMonolithic installed (Red Hat build of OpenTelemetry)
+#   - COO installed
+#   - Verify: oc get crd | grep tempo
+#
+# What it enables: OCP Console → Observe → Traces tab
+# Support status: Generally Available (COO 1.0+)
+#
+# Update the tempo section to match your Tempo installation:
+#   oc get tempomonolithic -A  or  oc get tempostack -A
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: distributed-tracing
+spec:
+  type: DistributedTracing
+  distributedTracing:
+    timeout: 30s

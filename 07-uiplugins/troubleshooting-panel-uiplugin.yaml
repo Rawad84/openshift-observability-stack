@@ -1,0 +1,29 @@
+# Prerequisites (ALL required for full signal correlation):
+#   - COO installed
+#   - LokiStack deployed + Logging UIPlugin applied (Observe → Logs)
+#   - TempoStack/TempoMonolithic deployed + Distributed Tracing UIPlugin applied (Observe → Traces)
+#   - Network Observability Operator + FlowCollector deployed (Observe → Network Traffic)
+#
+# What it enables:
+#   - OCP Console → Observe → Dashboards → Troubleshooting Panel sidebar
+#   - Single view correlating: metrics, logs, traces, network flows, K8s events
+#   - For a selected pod/workload: shows all signals for the same time window
+#
+# Support status: Generally Available (COO 1.3+)
+#
+# This is the key UIPlugin for the root-cause scenario:
+#   1. Frontend alert fires (high latency / errors)
+#   2. Open Troubleshooting Panel for the frontend pod
+#   3. Pivot to backend via traces (trace shows slow backend span)
+#   4. Pivot to backend logs (log shows "Database connection timeout")
+#   5. Pivot to network flows (shows backend→mock-db connection stalls)
+#   6. Confirm: root cause is mock-db, not frontend
+#
+# Verify after apply: oc get uiplugin troubleshooting-panel
+#   In console: Observe → Dashboards → click a metric → Troubleshooting Panel appears
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: troubleshooting-panel
+spec:
+  type: TroubleshootingPanel

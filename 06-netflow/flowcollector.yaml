@@ -1,0 +1,56 @@
+# Prerequisites:
+#   - Network Observability Operator installed
+#   - netobserv-loki-obc.yaml applied and OBC Bound
+#   - deploy-netobserv-loki.sh run (creates netobserv-loki-storage secret)
+#   - netobserv-lokistack.yaml applied and LokiStack Ready
+#   - Verify: oc get lokistack netobserv-loki -n netobserv
+#
+# What it enables:
+#   - OCP Console → Observe → Network Traffic tab
+#   - Per-pod, per-namespace, per-workload flow data
+#   - Shows TCP connections between frontend→backend→mock-db during degraded scenario
+#
+# Why a dedicated LokiStack (not shared with openshift-logging):
+#   Loki Operator 6.x has separate tenant modes: openshift-logging handles
+#   application/infrastructure/audit; openshift-network handles the network
+#   tenant. A single LokiStack cannot mix both modes.
+#
+# Note: FlowCollector is cluster-scoped (one per cluster).
+#   If another FlowCollector already exists, edit it rather than creating a new one.
+#   oc get flowcollector
+apiVersion: flows.netobserv.io/v1beta2
+kind: FlowCollector
+metadata:
+  name: cluster
+spec:
+  namespace: netobserv
+  deploymentModel: Direct
+  agent:
+    type: eBPF
+    ebpf:
+      sampling: 50
+      # Capture flows for app-scenario namespace
+      # Leave empty to capture all namespaces (default)
+      namespaces: []
+  processor:
+    logLevel: warn
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 50m
+      limits:
+        memory: 400Mi
+  loki:
+    mode: LokiStack
+    lokiStack:
+      name: loki
+      namespace: netobserv
+  consolePlugin:
+    enable: true
+    logLevel: warn
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 50m
+      limits:
+        memory: 100Mi

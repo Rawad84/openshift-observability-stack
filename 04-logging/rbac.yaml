@@ -1,0 +1,52 @@
+---
+# ServiceAccount used by the log collector agent for this namespace
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-scenario-log-collector
+  namespace: app-scenario
+---
+# Allow the collector to read pods/logs in app-scenario
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: app-scenario-log-collector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: collect-application-logs
+subjects:
+  - kind: ServiceAccount
+    name: app-scenario-log-collector
+    namespace: app-scenario
+---
+# Allow the collector to WRITE application logs to LokiStack.
+# The Loki gateway OPA sidecar uses --openshift.mappings=application=loki.grafana.com
+# and checks namespace-scoped SAR: can SA create "application" in loki.grafana.com in this namespace.
+# ClusterRoleBinding alone is not sufficient — a namespace-scoped RoleBinding is required.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: app-scenario-loki-write
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-logging-write-application-logs
+subjects:
+  - kind: ServiceAccount
+    name: app-scenario-log-collector
+    namespace: app-scenario
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-scenario-loki-write-ns
+  namespace: app-scenario
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-logging-write-application-logs
+subjects:
+  - kind: ServiceAccount
+    name: app-scenario-log-collector
+    namespace: app-scenario

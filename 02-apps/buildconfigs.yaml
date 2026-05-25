@@ -1,0 +1,57 @@
+---
+# BuildConfig for frontend — builds from local source using binary strategy
+# Run: oc start-build frontend --from-dir=apps/frontend --follow -n app-scenario
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: frontend
+  namespace: app-scenario
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: frontend:latest
+---
+# BuildConfig for backend
+# Run: oc start-build backend --from-dir=apps/backend --follow -n app-scenario
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: backend
+  namespace: app-scenario
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: backend:latest
+---
+# BuildConfig for mock-db
+# Run: oc start-build mock-db --from-dir=apps/mock-db --follow -n app-scenario
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: mock-db
+  namespace: app-scenario
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: mock-db:latest

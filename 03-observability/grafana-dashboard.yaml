@@ -1,0 +1,160 @@
+# Applied via build-and-deploy.sh using envsubst. GRAFANA_NS must match the Grafana instance namespace.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: golden-signals
+  namespace: ${GRAFANA_NS}
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana-a
+  json: |
+    {
+      "title": "Golden Signals — app-scenario",
+      "uid": "golden-signals-app-scenario",
+      "schemaVersion": 38,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": { "list": [] },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Traffic — Request Rate (req/s)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "sum by (job) (rate(http_requests_total[2m]))",
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } }
+        },
+        {
+          "id": 2,
+          "title": "Errors — 5xx Rate (req/s)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "sum by (job) (rate(http_requests_total{status_code=~\"5..\"}[2m]))",
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } }
+        },
+        {
+          "id": 3,
+          "title": "Errors — Error Ratio (%)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "sum by (job) (rate(http_requests_total{status_code=~\"5..\"}[2m])) / sum by (job) (rate(http_requests_total[2m])) * 100",
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "palette-classic" } } }
+        },
+        {
+          "id": 4,
+          "title": "Latency — p50 / p95 / p99 (seconds)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket[2m])))",
+              "legendFormat": "{{job}} p50",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[2m])))",
+              "legendFormat": "{{job}} p95",
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket[2m])))",
+              "legendFormat": "{{job}} p99",
+              "refId": "C"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "palette-classic" } } }
+        },
+        {
+          "id": 5,
+          "title": "mock-db — Query Rate (queries/s)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "sum by (status) (rate(db_queries_total[2m]))",
+              "legendFormat": "{{status}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } }
+        },
+        {
+          "id": 6,
+          "title": "mock-db — SQLite Query Latency (p50 / p99)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "histogram_quantile(0.50, rate(db_query_duration_seconds_bucket[2m]))",
+              "legendFormat": "p50",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "histogram_quantile(0.99, rate(db_query_duration_seconds_bucket[2m]))",
+              "legendFormat": "p99",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "palette-classic" } } }
+        },
+        {
+          "id": 7,
+          "title": "Target Health (1 = UP, 0 = DOWN)",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 24, "w": 24, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-app-scenario" },
+              "expr": "up{namespace=\"app-scenario\", job=~\"frontend|backend|mock-db\"}",
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+              ],
+              "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 1, "color": "green" } ] },
+              "color": { "mode": "thresholds" }
+            }
+          },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal", "colorMode": "background", "text": { "titleSize": 24 } }
+        }
+      ]
+    }

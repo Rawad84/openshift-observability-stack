@@ -1,0 +1,42 @@
+# Prerequisites: Grafana Operator installed (any namespace).
+# This file is applied via build-and-deploy.sh using envsubst — do not apply directly with oc apply.
+# Set GRAFANA_NS to match where the operator is installed (default: openshift-operators).
+#
+# Admin credentials are read from the grafana-admin-credentials Secret.
+# Create it before applying this manifest:
+#
+#   oc create secret generic grafana-admin-credentials \
+#     -n <GRAFANA_NS> \
+#     --from-literal=GF_SECURITY_ADMIN_USER=admin \
+#     --from-literal=GF_SECURITY_ADMIN_PASSWORD=<your-password>
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana-a
+  labels:
+    dashboards: grafana-a
+    folders: grafana-a
+  namespace: ${GRAFANA_NS}
+spec:
+  config:
+    auth:
+      disable_login_form: 'false'
+    log:
+      mode: console
+  deployment:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: grafana
+              envFrom:
+                - secretRef:
+                    name: grafana-admin-credentials
+  route:
+    spec:
+      to:
+        kind: Service
+        name: grafana-a-service
+        weight: 100
+      tls:
+        termination: edge

@@ -1,0 +1,14 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: prometheus
+  namespace: app-scenario
+spec:
+  to:
+    kind: Service
+    name: app-scenario-stack-prometheus
+  port:
+    targetPort: 9090
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,42 @@
+apiVersion: observability.openshift.io/v1
+kind: ClusterLogForwarder
+metadata:
+  name: app-scenario
+  namespace: app-scenario
+spec:
+  serviceAccount:
+    name: app-scenario-log-collector
+  collector:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 1Gi
+  inputs:
+    - name: app-scenario-logs
+      type: application
+      application:
+        namespaces:
+          - app-scenario
+  outputs:
+    - name: loki-app-scenario
+      type: lokiStack
+      lokiStack:
+        target:
+          name: logging-loki
+          namespace: openshift-logging
+        authentication:
+          token:
+            from: serviceAccount
+      tls:
+        ca:
+          configMapName: loki-ca
+          key: service-ca.crt
+  pipelines:
+    - name: app-scenario-pipeline
+      inputRefs:
+        - app-scenario-logs
+      outputRefs:
+        - loki-app-scenario

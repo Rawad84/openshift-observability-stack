@@ -1,0 +1,62 @@
+# LokiStack using NooBaa S3 storage.
+# Prerequisites:
+#   1. OpenShift Logging Operator installed
+#   2. objectbucketclaim.yaml applied and OBC is Bound
+#   3. create-loki-secret.sh has been run (creates lokistack-storage secret)
+#
+# Size 1x.pico is suitable for lab/demo — operator respects template resource overrides.
+# For production use 1x.small or larger.
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: logging-loki
+  namespace: openshift-logging
+spec:
+  size: 1x.pico
+  managementState: Managed
+  storage:
+    schemas:
+      - version: v13
+        effectiveDate: "2024-01-01"
+    secret:
+      name: lokistack-storage
+      type: s3
+  storageClassName: ${STORAGE_CLASS}
+  tenants:
+    mode: openshift-logging
+  template:
+    ingester:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+    distributor:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    querier:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    queryFrontend:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    compactor:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    indexGateway:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    gateway:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi

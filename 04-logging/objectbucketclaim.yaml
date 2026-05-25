@@ -1,0 +1,14 @@
+# Creates an S3-compatible bucket in NooBaa for Loki storage.
+# After applying, NooBaa creates:
+#   Secret:    loki-bucket (in openshift-logging) — AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+#   ConfigMap: loki-bucket (in openshift-logging) — BUCKET_HOST, BUCKET_PORT, BUCKET_NAME
+#
+# Applied and waited on by build-and-deploy.sh (Step 8).
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: loki-bucket
+  namespace: openshift-logging
+spec:
+  generateBucketName: loki-bucket
+  storageClassName: ${OBC_STORAGE_CLASS}
