@@ -65,6 +65,14 @@ def init_db():
             score REAL    NOT NULL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS query_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id  INTEGER NOT NULL,
+            score      REAL    NOT NULL,
+            queried_at TEXT    NOT NULL
+        )
+    """)
     if conn.execute("SELECT COUNT(*) FROM records").fetchone()[0] == 0:
         conn.executemany(
             "INSERT INTO records (id, value, score) VALUES (?, ?, ?)",
@@ -104,6 +112,11 @@ def query():
 
         conn = sqlite3.connect(DB_PATH)
         row = conn.execute(DB_STATEMENT).fetchone()
+        conn.execute(
+            "INSERT INTO query_log (record_id, score, queried_at) VALUES (?, ?, datetime('now'))",
+            (row[0], row[2]),
+        )
+        conn.commit()
         conn.close()
 
         record = {"id": row[0], "value": row[1], "score": row[2]}

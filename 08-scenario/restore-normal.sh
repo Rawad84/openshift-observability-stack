@@ -17,14 +17,19 @@ echo "=== Confirming status ==="
 curl -sf "https://${BACKEND_ROUTE}/status" | python3 -m json.tool
 
 echo ""
-echo "=== Sending 5 requests to confirm recovery ==="
 FRONTEND_ROUTE=$(oc get route frontend -n "$NAMESPACE" -o jsonpath='{.spec.host}')
-for i in $(seq 1 5); do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://${FRONTEND_ROUTE}/")
-  echo "  Request $i: HTTP $STATUS"
-  sleep 0.5
-done
-
+INTERVAL="${INTERVAL:-0.2}"
+echo "=== Sending continuous traffic to confirm recovery (Ctrl+C to stop) ==="
+echo "    URL: https://${FRONTEND_ROUTE}/"
+echo "    Interval: ${INTERVAL}s"
 echo ""
-echo "System restored to NORMAL mode."
 echo "Metrics will reflect recovery within ~1-2 minutes (next scrape + recording rule interval)."
+echo ""
+
+COUNT=0
+while true; do
+  COUNT=$((COUNT + 1))
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://${FRONTEND_ROUTE}/")
+  echo "  [$(date '+%H:%M:%S')] Request ${COUNT}: HTTP ${STATUS}"
+  sleep "${INTERVAL}"
+done

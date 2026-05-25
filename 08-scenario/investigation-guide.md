@@ -156,10 +156,10 @@ In OCP Console → Observe → Metrics (platform Prometheus):
 
 ```promql
 # Read throughput for the mock-db container
-rate(container_fs_reads_bytes_total{namespace="app-scenario", container="mock-db"}[5m])
+rate(container_fs_reads_bytes_total{namespace="app-scenario", pod=~"mock-db.*"}[5m])
 
 # Write throughput
-rate(container_fs_writes_bytes_total{namespace="app-scenario", container="mock-db"}[5m])
+rate(container_fs_writes_bytes_total{namespace="app-scenario", pod=~"mock-db.*"}[5m])
 ```
 
 **What you see:** Flat or near-zero I/O during the incident window. The SQLite database is not being read at all — consistent with the trace showing mock-db was never called.

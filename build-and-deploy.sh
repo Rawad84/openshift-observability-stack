@@ -116,6 +116,25 @@ if oc get crd grafanas.grafana.integreatly.org &>/dev/null; then
   echo "  Waiting for Grafana pod to be ready..."
   oc rollout status deployment/grafana-a-deployment -n "$GRAFANA_NS" --timeout=120s 2>/dev/null || true
   envsubst '$GRAFANA_NS' < "$SCRIPT_DIR/03-observability/grafana-datasource.yaml" | oc apply -f -
+
+  # Platform Prometheus datasource — reads cAdvisor metrics from Thanos Querier
+  # Apply SA and ClusterRoleBinding first (no token needed yet)
+  envsubst '$GRAFANA_NS' < "$SCRIPT_DIR/03-observability/grafana-platform-datasource.yaml" | \
+    grep -v "GrafanaDatasource" | oc apply -f - 2>/dev/null || true
+
+  echo "  Waiting for platform Prometheus SA token to be populated..."
+  for i in $(seq 1 12); do
+    export PLATFORM_TOKEN=$(oc get secret grafana-platform-prometheus-token -n "$GRAFANA_NS" \
+      -o jsonpath='{.data.token}' 2>/dev/null | base64 -d)
+    [[ -n "$PLATFORM_TOKEN" ]] && { echo "  Token ready."; break; }
+    echo "  ($i/12) waiting 5s..."
+    sleep 5
+  done
+  [[ -z "$PLATFORM_TOKEN" ]] && { echo "ERROR: SA token not populated."; exit 1; }
+
+  # Embed the real token into the CR — operator reconciles from CR, so token stays correct
+  envsubst '$GRAFANA_NS $PLATFORM_TOKEN' < "$SCRIPT_DIR/03-observability/grafana-platform-datasource.yaml" | oc apply -f -
+
   envsubst '$GRAFANA_NS' < "$SCRIPT_DIR/03-observability/grafana-dashboard.yaml"  | oc apply -f -
 else
   echo "  Grafana Operator not installed — skipping."
@@ -212,7 +231,7 @@ oc create secret generic lokistack-storage -n "$LOG_NS" \
   --from-literal=access_key_id="$ACCESS_KEY" \
   --from-literal=access_key_secret="$SECRET_KEY" \
   --from-literal=bucketnames="$BUCKET_NAME" \
-  --from-literal=endpoint="http://${BUCKET_HOST}:${BUCKET_PORT}" \
+  --from-literal=endpoint="http://${BUCKET_HOST}:80" \
   --dry-run=client -o yaml | oc apply -f -
 
 envsubst '$STORAGE_CLASS' < "$SCRIPT_DIR/04-logging/lokistack.yaml" | oc apply -f -
@@ -270,7 +289,7 @@ else
     --from-literal=access_key_id="$ACCESS_KEY" \
     --from-literal=access_key_secret="$SECRET_KEY" \
     --from-literal=bucketnames="$BUCKET_NAME" \
-    --from-literal=endpoint="http://${BUCKET_HOST}:${BUCKET_PORT}" \
+    --from-literal=endpoint="http://${BUCKET_HOST}:80" \
     --dry-run=client -o yaml | oc apply -f -
 
   envsubst '$STORAGE_CLASS $NETOBSERV_NS' < "$SCRIPT_DIR/06-netflow/netobserv-lokistack.yaml" | oc apply -f -

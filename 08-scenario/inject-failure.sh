@@ -28,7 +28,7 @@ curl -sf "https://${BACKEND_ROUTE}/status" | python3 -m json.tool
 echo ""
 echo "=== Generating continuous traffic to keep alerts firing ==="
 FRONTEND_ROUTE=$(oc get route frontend -n "$NAMESPACE" -o jsonpath='{.spec.host}')
-echo "Sending requests every 2s (Ctrl+C to stop — alerts need ~5 min of sustained traffic to fire)..."
+echo "Sending 5 requests/sec (Ctrl+C to stop — alerts need ~5 min of sustained traffic to fire)..."
 echo "Keep this running while you investigate in the OCP Console."
 echo ""
 
@@ -43,5 +43,5 @@ while true; do
   fi
   printf "\r  Requests: %d  |  OK: %d  |  Errors: %d  |  Error rate: %d%%" \
     "$COUNT" "$SUCCESS" "$ERRORS" "$((ERRORS * 100 / COUNT))"
-  sleep 2
+  sleep 0.2
 done
